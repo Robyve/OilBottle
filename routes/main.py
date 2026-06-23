@@ -265,8 +265,8 @@ def submit():
 
     if (rating is not None and not (1 <= rating <= 5)) or year not in Config.YEARS:
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify(ok=False, msg='评分或年份无效')
-        flash('评分或年份无效', 'danger')
+            return jsonify(ok=False, msg='年份无效')
+        flash('年份无效', 'danger')
         return redirect(url_for('main.course_detail', course_id=course_id, teacher_id=teacher_id))
 
     ip = get_client_ip()

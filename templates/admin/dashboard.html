@@ -243,7 +243,7 @@
     <script>
       const quill = new Quill('#quill-editor', {
         theme: 'snow',
-        modules: { toolbar: [['bold', 'italic'], [{ color: [] }], [{ align: [] }], ['link', 'image'], ['clean']] }
+        modules: { toolbar: [['bold', 'italic'], [{ size: ['small', false, 'large', 'huge'] }], [{ color: [] }], [{ align: [] }], [{ indent: '-1' }, { indent: '+1' }], ['link', 'image'], ['clean']] }
       });
       document.getElementById('ann-form').addEventListener('submit', () => {
         document.getElementById('ann-content').value = quill.getSemanticHTML();
