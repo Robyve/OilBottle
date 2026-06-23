@@ -1,13 +1,31 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, jsonify
 from sqlalchemy import func
+from datetime import datetime, timedelta
 from models import db, Course, Teacher, Evaluation, Tag, CurriculumEntry
 from config import Config
 
 bp = Blueprint('main', __name__)
 
+_online = {}
+
+@bp.before_request
+def _track_online():
+    ip = get_client_ip()
+    now = datetime.utcnow()
+    _online[ip] = now
+    cutoff = now - timedelta(minutes=5)
+    for k in [k for k, v in list(_online.items()) if v < cutoff]:
+        del _online[k]
+
 
 def get_client_ip():
     return request.headers.get('X-Forwarded-For', request.remote_addr).split(',')[0].strip()
+
+
+@bp.route('/api/online')
+def online_count():
+    cutoff = datetime.utcnow() - timedelta(minutes=5)
+    return jsonify(count=sum(1 for v in _online.values() if v >= cutoff))
 
 
 @bp.route('/')
@@ -59,8 +77,11 @@ def index():
     ).group_by(Evaluation.course_id, Evaluation.teacher_id, Evaluation.year).all())
 
     teacher_stats = {}
+    unrated_counts = {}
     for r in eval_rows:
         if r.avg_r is None:
+            key = (r.course_id, r.teacher_id)
+            unrated_counts[key] = unrated_counts.get(key, 0) + r.cnt
             continue
         d = teacher_stats.setdefault(r.course_id, {}).setdefault(r.teacher_id, {'years': {}})
         d['years'][r.year] = (round(r.avg_r, 1), r.cnt)
@@ -71,6 +92,9 @@ def index():
             data['recent'] = {'year': ry, 'avg': yd[ry][0], 'cnt': yd[ry][1]}
             tc = sum(v[1] for v in yd.values())
             data['all'] = {'avg': round(sum(v[0]*v[1] for v in yd.values()) / tc, 1), 'cnt': tc}
+    for (cid, tid), cnt in unrated_counts.items():
+        if tid not in teacher_stats.get(cid, {}):
+            teacher_stats.setdefault(cid, {})[tid] = {'all': {'avg': None, 'cnt': cnt}}
 
     sort = request.args.get('sort', '')
     sorted_pairs = []
@@ -78,7 +102,7 @@ def index():
         for course in all_courses:
             for t in course.teachers:
                 s = teacher_stats.get(course.id, {}).get(t.id)
-                if s:
+                if s and s['all']['avg'] is not None:
                     sorted_pairs.append({'course': course, 'teacher': t, 'stats': s,
                                          'in_plan': course.id in plan_ids or course.id in public_ids})
         sorted_pairs.sort(key=lambda x: (-x['stats']['all']['avg'], -x['stats']['all']['cnt']))

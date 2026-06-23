@@ -5,7 +5,7 @@
 <div class="d-flex gap-3 align-items-start">
 
 {% if announcement or true %}
-<div class="d-none d-lg-block" style="width:300px;flex-shrink:0;position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+<div class="d-none d-lg-flex" style="width:300px;flex-shrink:0;flex-direction:column;position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto;gap:16px;padding:4px 6px">
   {% if announcement %}
   <div class="card shadow-sm">
     <div class="card-body py-2">
@@ -19,6 +19,7 @@
       <div class="d-flex justify-content-between small text-muted mb-2">
         <span><strong>{{ course_count }}</strong> 门课程</span>
         <span><strong>{{ eval_count }}</strong> 条评价</span>
+        <span>在线 <strong id="onlineCount">-</strong> 人</span>
       </div>
       {% for r in [5,4,3,2,1] %}
       {% set cnt = rating_dist.get(r, 0) %}
@@ -53,6 +54,7 @@
         {% endif %}
       </div>
       <div class="d-flex gap-2 align-items-center">
+        <span class="text-muted small">排序：</span>
         <div class="btn-group btn-group-sm">
           <a class="btn {% if sort != 'score' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
              href="{{ url_for('main.index', year=sel_year, type=sel_type) }}">按课程</a>
@@ -130,10 +132,10 @@
     {% for sub_cat, entries in sub_cats.items() %}
     {% set _sc = 'hsl(' ~ _hue ~ ',65%,' ~ (36 + loop.index0 * 9) ~ '%)' %}
     <div class="d-flex gap-2 mb-3">
-      <div style="flex-shrink:0;width:22px;position:relative">
-        <div style="position:absolute;left:0;top:0;bottom:0;width:22px;background:{{ _sc }};border-radius:3px"></div>
+      <div style="flex-shrink:0;width:30px;position:relative">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:30px;background:{{ _sc }};border-radius:3px"></div>
         <div style="position:sticky;top:1rem;overflow:hidden">
-          <span style="display:block;writing-mode:vertical-rl;color:#fff;font-size:.8rem;white-space:nowrap;padding:6px 4px;line-height:1">{{ major_cat }}・{{ sub_cat }}</span>
+          <span style="display:block;writing-mode:vertical-rl;color:#fff;font-size:1.15rem;font-weight:bold;white-space:nowrap;padding:6px 5px;line-height:1;text-align:center">{{ major_cat }}・{{ sub_cat }}</span>
         </div>
       </div>
       <div class="flex-grow-1 d-flex flex-column gap-2">
@@ -274,8 +276,7 @@ panelBody.addEventListener('submit', e => {
   }
 });
 
-panelBody.addEventListener('click', e => {
-  const btn = e.target.closest('.delete-eval');
+panelBody.addEventListener('click', e => {  const btn = e.target.closest('.delete-eval');
   if (!btn) return;
   const active = document.querySelector('.open-panel.teacher-active');
   fetch(`/evaluation/${btn.dataset.id}/delete`, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
@@ -291,6 +292,7 @@ panelBody.addEventListener('click', e => {
       });
     });
 });
+(function poll(){fetch('/api/online').then(r=>r.json()).then(d=>{const el=document.getElementById('onlineCount');if(el)el.textContent=d.count;}).finally(()=>setTimeout(poll,5000));})();
 </script>
 {% endblock %}
 
@@ -330,11 +332,17 @@ panelBody.addEventListener('click', e => {
              style="cursor:pointer" data-course="{{ course.id }}" data-teacher="{{ t.id }}">
           <span class="small fw-semibold text-truncate" style="flex:0 0 7em">{{ t.name }}</span>
           {% if s %}
-            {% set hue = ((s.all.avg - 1) / 4 * 120) | int %}
-            <span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl({{ hue }},60%,82%)">
-              {{ s.all.avg }}<span style="font-size:.8em;font-weight:normal">分</span>
-              {{ s.all.cnt }}<span style="font-size:.7em;font-weight:normal">人评</span>
-            </span>
+            {% if s.all.avg %}
+              {% set hue = ((s.all.avg - 1) / 4 * 120) | int %}
+              <span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl({{ hue }},60%,82%)">
+                {{ s.all.avg }}<span style="font-size:.8em;font-weight:normal">分</span>
+                {{ s.all.cnt }}<span style="font-size:.7em;font-weight:normal">人评</span>
+              </span>
+            {% else %}
+              <span class="small fw-bold px-2 rounded-1 stat-badge" style="background:#e0e0e0;color:#666">
+                {{ s.all.cnt }}<span style="font-size:.7em;font-weight:normal">人评</span>
+              </span>
+            {% endif %}
           {% else %}
             <span class="small text-muted stat-badge">暂无评价</span>
           {% endif %}
