@@ -251,14 +251,7 @@ panelBody.addEventListener('submit', e => {
     fetch('/submit', {method:'POST', body:new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r => r.json()).then(data => {
         if (data.ok) {
-          fetch(form.dataset.panel).then(r => r.text())
-            .then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
-          fetch(`/course/${courseId}/teacher/${teacherId}/stats`).then(r=>r.json()).then(s=>{
-            if (!s.avg) return;
-            const hue = Math.round((s.avg-1)/4*120);
-            document.querySelectorAll(`.open-panel[data-course="${courseId}"][data-teacher="${teacherId}"] .stat-badge`)
-              .forEach(b => { b.outerHTML = `<span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl(${hue},60%,82%)">${s.avg}<span style="font-size:.8em;font-weight:normal">分</span>${s.cnt}<span style="font-size:.7em;font-weight:normal">人评</span></span>`; });
-          });
+          location.reload();
         } else {
           msg.textContent = data.msg;
         }
@@ -267,8 +260,7 @@ panelBody.addEventListener('submit', e => {
     fetch('/add_teacher', {method:'POST', body:new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'}})
       .then(r => r.json()).then(d => {
         if (d.ok) {
-          fetch(`/course/${d.course_id}/teacher/${d.teacher_id}/panel`).then(r => r.text())
-            .then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
+          location.reload();
         } else {
           form.querySelector('.add-teacher-msg').textContent = d.msg;
         }
