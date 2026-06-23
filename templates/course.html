@@ -97,7 +97,9 @@
     {% endif %}
     <div class="card card-body mb-2 py-2">
       <div class="d-flex align-items-center gap-2 mb-1">
+        {% if ev.rating %}
         <span class="text-warning">{{ '★' * ev.rating }}{{ '☆' * (5 - ev.rating) }}</span>
+        {% else %}<span class="text-muted small">未评分</span>{% endif %}
         <small class="text-muted">{{ ev.created_at.strftime('%Y-%m-%d') }}</small>
       </div>
       {% for tag in ev.tags %}
