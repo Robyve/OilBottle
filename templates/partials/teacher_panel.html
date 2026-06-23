@@ -1,0 +1,65 @@
+<p class="fw-semibold mb-1">{{ course.name }}</p>
+<p class="text-muted small mb-3">{{ teacher.name }}</p>
+
+<form class="eval-form mb-4" data-panel="/course/{{ course.id }}/teacher/{{ teacher.id }}/panel">
+  <input type="hidden" name="course_id" value="{{ course.id }}">
+  <input type="hidden" name="teacher_id" value="{{ teacher.id }}">
+  <div class="mb-2">
+    <select class="form-select form-select-sm" name="year">
+      <option value="">选择学年…</option>
+      {% for y in years %}
+        <option value="{{ y }}" {% if y in year_submitted %}disabled{% endif %}>
+          {{ y }}{% if y in year_submitted %} （已评价）{% endif %}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="mb-2">
+    <div class="rating-stars panel-stars">
+      {% for i in range(1,6) %}<span class="star" data-v="{{ i }}">★</span>{% endfor %}
+    </div>
+    <input type="hidden" name="rating" class="panel-rating">
+    <small class="text-muted">不选则为未评分</small>
+  </div>
+  {% if tag_groups %}
+  <div class="mb-2">
+    {% for category, tags in tag_groups.items() %}
+      <small class="text-muted d-block mb-1">{{ category }}</small>
+      {% for tag in tags %}
+        <span class="badge bg-light text-dark border tag-btn me-1 mb-1" data-id="{{ tag.id }}">{{ tag.label }}</span>
+        <input type="checkbox" name="tags" value="{{ tag.id }}" id="ptag{{ tag.id }}" class="d-none">
+      {% endfor %}
+    {% endfor %}
+  </div>
+  {% endif %}
+  <textarea class="form-control form-control-sm mb-2" name="comment" rows="2" maxlength="500" placeholder="评价内容（可选）…"></textarea>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-primary" type="submit">提交评价</button>
+    <span class="small text-danger panel-msg"></span>
+  </div>
+</form>
+
+<p class="text-muted small mb-2">历史评价（{{ evaluations|length }} 条）</p>
+{% for ev in evaluations %}
+  <div class="card mb-2">
+    <div class="card-body py-2 px-3">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        {% if ev.rating %}
+          {% set hue = ((ev.rating - 1) / 4 * 120) | int %}
+          <span class="fw-semibold px-2 rounded-1" style="background:hsl({{ hue }},60%,82%);min-width:1.6em;text-align:center">{{ ev.rating }}</span>
+        {% else %}
+          <span class="text-muted small px-2">未评分</span>
+        {% endif %}
+        <span class="fw-semibold px-2 rounded-1" style="border:1.5px solid #444;color:#444">{{ ev.year }}</span>
+        <small class="text-muted">{{ ev.created_at.strftime('%m-%d') }}</small>
+        {% if ev.id in my_eval_ids %}
+          <button class="btn btn-link text-danger p-0 ms-auto delete-eval" style="font-size:.75rem" data-id="{{ ev.id }}">删除</button>
+        {% endif %}
+      </div>
+      {% for tag in ev.tags %}<span class="badge bg-secondary me-1">{{ tag.label }}</span>{% endfor %}
+      {% if ev.comment %}<p class="mb-0 mt-1 small">{{ ev.comment }}</p>{% endif %}
+    </div>
+  </div>
+{% else %}
+  <p class="text-muted small">暂无评价，来做第一个吧！</p>
+{% endfor %}

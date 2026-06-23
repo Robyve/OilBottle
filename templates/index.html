@@ -1,0 +1,348 @@
+{% extends 'base.html' %}
+{% block title %}课程列表{% endblock %}
+{% block content %}
+
+<div class="d-flex gap-3 align-items-start">
+
+{% if announcement or true %}
+<div class="d-none d-lg-block" style="width:300px;flex-shrink:0;position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto;display:flex;flex-direction:column;gap:16px">
+  {% if announcement %}
+  <div class="card shadow-sm">
+    <div class="card-body py-2">
+      <div class="fw-bold small mb-1">公告</div>
+      <div class="ql-content" style="line-height:1.2">{{ announcement|safe }}</div>
+    </div>
+  </div>
+  {% endif %}
+  <div class="card shadow-sm">
+    <div class="card-body py-2">
+      <div class="d-flex justify-content-between small text-muted mb-2">
+        <span><strong>{{ course_count }}</strong> 门课程</span>
+        <span><strong>{{ eval_count }}</strong> 条评价</span>
+      </div>
+      {% for r in [5,4,3,2,1] %}
+      {% set cnt = rating_dist.get(r, 0) %}
+      {% set pct = (cnt / eval_count * 100) | int if eval_count else 0 %}
+      <div class="d-flex align-items-center gap-1 mb-1">
+        <span class="text-warning" style="font-size:.68rem;width:54px;letter-spacing:-1px">{{ '★' * r }}{{ '☆' * (5-r) }}</span>
+        <div class="flex-grow-1 rounded" style="height:7px;background:#eee">
+          <div style="width:{{ pct }}%;height:7px;background:#ffc107;border-radius:3px"></div>
+        </div>
+        <span class="text-muted" style="font-size:.7rem;width:24px;text-align:right">{{ cnt }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card shadow-sm">
+    <div class="card-body py-2 d-flex flex-column gap-2">
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small">年份：</span>
+        {% for year in available_years %}
+          <a class="btn btn-sm {% if sel_year == year %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+             href="{{ url_for('main.index', year=year, type=sel_type, sort=sort) }}">{{ year }}</a>
+        {% endfor %}
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="text-muted small">身份：</span>
+        {% for stype in available_types %}
+          <a class="btn btn-sm {% if sel_type == stype %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+             href="{{ url_for('main.index', year=sel_year, type=stype, sort=sort) }}">{{ st_abbr.get(stype, stype) }}</a>
+        {% endfor %}
+        {% if sel_year or sel_type %}
+          <a class="btn btn-sm btn-outline-danger" href="{{ url_for('main.index', sort=sort) }}">清除</a>
+        {% endif %}
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <div class="btn-group btn-group-sm">
+          <a class="btn {% if sort != 'score' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+             href="{{ url_for('main.index', year=sel_year, type=sel_type) }}">按课程</a>
+          <a class="btn {% if sort == 'score' %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+             href="{{ url_for('main.index', year=sel_year, type=sel_type, sort='score') }}">按评分</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="flex-grow-1" style="min-width:0">
+
+{% if sort == 'score' %}
+{# ===== 按分数排序：扁平列表 ===== #}
+  {% set has_identity = sel_year and sel_type %}
+  {% if has_identity %}
+    {% set other_count = sorted_pairs | selectattr('in_plan', 'equalto', false) | list | length %}
+    {% if other_count %}
+    <div class="d-flex align-items-center gap-2 mb-2">
+      <input type="checkbox" class="form-check-input" id="showOthers">
+      <label for="showOthers" class="small text-muted" style="cursor:pointer">包含其他课程（{{ other_count }} 项）</label>
+    </div>
+    {% endif %}
+  {% endif %}
+  <div class="d-flex flex-column gap-2">
+    {% for p in sorted_pairs %}
+      {% set hue = ((p.stats.all.avg - 1) / 4 * 120) | int %}
+      {% set entries = p.course.curriculum.all() | sort(attribute='year', reverse=True) %}
+      <div class="card shadow-sm{% if has_identity and not p.in_plan %} other-entry d-none{% endif %}">
+        <div class="card-body py-2 d-flex align-items-center gap-2 open-panel"
+             style="cursor:pointer" data-course="{{ p.course.id }}" data-teacher="{{ p.teacher.id }}">
+          <div class="flex-grow-1" style="min-width:0">
+            <span class="fw-semibold">{{ p.course.name }}</span>
+            <span class="text-muted small ms-2">{{ p.teacher.name }}</span>
+          </div>
+          <span class="d-flex flex-wrap gap-1">
+            {% if entries %}
+              {% for grp in entries | groupby('year') | sort(attribute='grouper', reverse=True) %}
+                <span class="border border-dark rounded-1 px-1 small d-inline-flex gap-1">
+                  <span class="text-muted">{{ grp.grouper }}</span>
+                  {% for e in grp.list %}
+                    <span class="{% if e.year == sel_year and e.student_type == sel_type %}text-primary fw-semibold{% else %}text-muted{% endif %}">{{ st_abbr.get(e.student_type, e.student_type) }}</span>
+                  {% endfor %}
+                </span>
+              {% endfor %}
+            {% else %}
+              <span class="border border-primary rounded-1 px-1 small text-primary fw-semibold">公共选修</span>
+            {% endif %}
+          </span>
+          <span class="small fw-bold px-2 rounded-1 flex-shrink-0 stat-badge" style="background:hsl({{ hue }},60%,82%)">
+            {{ p.stats.all.avg }}<span style="font-size:.8em;font-weight:normal">分</span>
+            {{ p.stats.all.cnt }}<span style="font-size:.7em;font-weight:normal">人评</span>
+          </span>
+        </div>
+      </div>
+    {% else %}
+      <p class="text-muted">暂无评价数据。</p>
+    {% endfor %}
+  </div>
+  {% if has_identity %}
+  <script>document.getElementById('showOthers')?.addEventListener('change', e =>
+    document.querySelectorAll('.other-entry').forEach(el => el.classList.toggle('d-none', !e.target.checked)));</script>
+  {% endif %}
+
+{% elif grouped %}
+{# ===== 按培养方案分组显示 ===== #}
+  {% set _hues = [210, 28, 120, 0, 270, 180, 45, 340] %}
+  {% for major_cat, sub_cats in grouped.items() %}
+  {% set _hue = _hues[loop.index0 % 8] %}
+  {% set _c = 'hsl(' ~ _hue ~ ',65%,40%)' %}
+  <div class="mb-4">
+    <h5 class="fw-bold border-bottom pb-1 mb-2" style="border-color:{{ _c }}!important">{{ major_cat }}</h5>
+    {% for sub_cat, entries in sub_cats.items() %}
+    {% set _sc = 'hsl(' ~ _hue ~ ',65%,' ~ (36 + loop.index0 * 9) ~ '%)' %}
+    <div class="d-flex gap-2 mb-3">
+      <div style="flex-shrink:0;width:22px;position:relative">
+        <div style="position:absolute;left:0;top:0;bottom:0;width:22px;background:{{ _sc }};border-radius:3px"></div>
+        <div style="position:sticky;top:1rem;overflow:hidden">
+          <span style="display:block;writing-mode:vertical-rl;color:#fff;font-size:.8rem;white-space:nowrap;padding:6px 4px;line-height:1">{{ major_cat }}・{{ sub_cat }}</span>
+        </div>
+      </div>
+      <div class="flex-grow-1 d-flex flex-column gap-2">
+        {% for entry in entries %}
+          {{ _course_card(entry.course, false, sel_year, sel_type, teacher_stats) }}
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  {% if public_not_in_plan %}
+  <div class="mb-4">
+    <h5 class="fw-bold border-bottom pb-1 mb-3">公共选修</h5>
+    <div class="d-flex flex-column gap-2">
+      {% for course in public_not_in_plan %}
+        {{ _course_card(course, false, sel_year, sel_type, teacher_stats) }}
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not_in_plan %}
+  <details class="mb-3">
+    <summary class="text-muted small mb-2" style="cursor:pointer">
+      不在培养方案的课程（{{ not_in_plan | length }} 门）
+    </summary>
+    <div class="d-flex flex-column gap-2 mt-2">
+      {% for course in not_in_plan %}
+        {{ _course_card(course, true, sel_year, sel_type, teacher_stats) }}
+      {% endfor %}
+    </div>
+  </details>
+  {% endif %}
+
+{% else %}
+{# ===== 未选身份：平铺列表 ===== #}
+  <div class="d-flex flex-column gap-2">
+    {% for course in courses %}
+      {{ _course_card(course, false, sel_year, sel_type, teacher_stats) }}
+    {% else %}
+      <p class="text-muted">没有找到符合条件的课程。</p>
+    {% endfor %}
+  </div>
+{% endif %}
+
+</div>{# end left col #}
+
+<div class="d-none d-lg-block" style="width:420px;flex-shrink:0;position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow-y:auto">
+  <div class="card shadow-sm">
+    <div class="card-body p-3" id="panelBody">
+      <p class="text-muted text-center small py-3">点击老师查看评价</p>
+    </div>
+  </div>
+</div>
+
+</div>{# end flex wrapper #}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const panelBody = document.getElementById('panelBody');
+
+function initPanel(container) {
+  container.querySelectorAll('.panel-stars').forEach(starsEl => {
+    const input = starsEl.nextElementSibling;
+    const stars = starsEl.querySelectorAll('.star');
+    function setRating(v) {
+      input.value = v;
+      stars.forEach(s => s.classList.toggle('active', +s.dataset.v <= v));
+    }
+    stars.forEach(s => {
+      s.addEventListener('click', () => setRating(+s.dataset.v));
+      s.addEventListener('mouseenter', () =>
+        stars.forEach(x => x.classList.toggle('active', +x.dataset.v <= +s.dataset.v)));
+    });
+    starsEl.addEventListener('mouseleave', () => {
+      const v = +input.value || 0;
+      stars.forEach(s => s.classList.toggle('active', +s.dataset.v <= v));
+    });
+  });
+  container.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const chk = container.querySelector('#ptag' + btn.dataset.id);
+      if (!chk) return;
+      chk.checked = !chk.checked;
+      btn.classList.toggle('selected', chk.checked);
+    });
+  });
+}
+
+document.addEventListener('click', e => {
+  const row = e.target.closest('.open-panel');
+  if (!row) return;
+  document.querySelectorAll('.open-panel.teacher-active').forEach(el => el.classList.remove('teacher-active'));
+  row.classList.add('teacher-active');
+  panelBody.innerHTML = '<p class="text-muted text-center py-4">加载中…</p>';
+  const url = row.dataset.teacher === '0'
+    ? `/course/${row.dataset.course}/new_teacher_panel`
+    : `/course/${row.dataset.course}/teacher/${row.dataset.teacher}/panel`;
+  fetch(url).then(r => r.text()).then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
+});
+
+panelBody.addEventListener('submit', e => {
+  e.preventDefault();
+  const form = e.target;
+  if (form.matches('.eval-form')) {
+    const msg = form.querySelector('.panel-msg');
+    const courseId = form.querySelector('[name=course_id]').value;
+    const teacherId = form.querySelector('[name=teacher_id]').value;
+    fetch('/submit', {method:'POST', body:new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r => r.json()).then(data => {
+        if (data.ok) {
+          fetch(form.dataset.panel).then(r => r.text())
+            .then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
+          fetch(`/course/${courseId}/teacher/${teacherId}/stats`).then(r=>r.json()).then(s=>{
+            if (!s.avg) return;
+            const hue = Math.round((s.avg-1)/4*120);
+            document.querySelectorAll(`.open-panel[data-course="${courseId}"][data-teacher="${teacherId}"] .stat-badge`)
+              .forEach(b => { b.outerHTML = `<span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl(${hue},60%,82%)">${s.avg}<span style="font-size:.8em;font-weight:normal">分</span>${s.cnt}<span style="font-size:.7em;font-weight:normal">人评</span></span>`; });
+          });
+        } else {
+          msg.textContent = data.msg;
+        }
+      }).catch(() => { msg.textContent = '提交失败，请重试'; });
+  } else if (form.matches('#add-teacher-form')) {
+    fetch('/add_teacher', {method:'POST', body:new FormData(form), headers:{'X-Requested-With':'XMLHttpRequest'}})
+      .then(r => r.json()).then(d => {
+        if (d.ok) {
+          fetch(`/course/${d.course_id}/teacher/${d.teacher_id}/panel`).then(r => r.text())
+            .then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
+        } else {
+          form.querySelector('.add-teacher-msg').textContent = d.msg;
+        }
+      });
+  }
+});
+
+panelBody.addEventListener('click', e => {
+  const btn = e.target.closest('.delete-eval');
+  if (!btn) return;
+  const active = document.querySelector('.open-panel.teacher-active');
+  fetch(`/evaluation/${btn.dataset.id}/delete`, {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest'}})
+    .then(r => r.json()).then(d => {
+      if (!d.ok) return;
+      if (active) fetch(`/course/${active.dataset.course}/teacher/${active.dataset.teacher}/panel`)
+        .then(r => r.text()).then(html => { panelBody.innerHTML = html; initPanel(panelBody); });
+      fetch(`/course/${d.course_id}/teacher/${d.teacher_id}/stats`).then(r => r.json()).then(s => {
+        if (!s.avg) return;
+        const hue = Math.round((s.avg-1)/4*120);
+        document.querySelectorAll(`.open-panel[data-course="${d.course_id}"][data-teacher="${d.teacher_id}"] .stat-badge`)
+          .forEach(b => { b.outerHTML = `<span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl(${hue},60%,82%)">${s.avg}<span style="font-size:.8em;font-weight:normal">分</span>${s.cnt}<span style="font-size:.7em;font-weight:normal">人评</span></span>`; });
+      });
+    });
+});
+</script>
+{% endblock %}
+
+{# ===== 课程卡片宏 ===== #}
+{% macro _course_card(course, greyed, sel_year=None, sel_type='', teacher_stats={}) %}
+{% set entries = course.curriculum.all() | sort(attribute='year', reverse=True) %}
+<div class="card shadow-sm {% if greyed %}opacity-50{% endif %}" style="position:relative">
+  <div class="card-body py-3">
+    {% if not greyed %}
+    <div class="open-panel" style="position:absolute;top:6px;right:8px;cursor:pointer;color:#bbb;font-size:1.1rem;line-height:1;padding:2px 4px"
+         data-course="{{ course.id }}" data-teacher="0" title="添加老师">＋</div>
+    {% endif %}
+    <h6 class="fw-bold mb-1">{{ course.name }}</h6>
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+      <span class="text-muted small">{{ course.code }}</span>
+      <span class="small text-secondary">{{ course.credits }} 学分</span>
+      <span class="ms-auto d-flex flex-wrap gap-1">
+        {% if entries %}
+          {% for grp in entries | groupby('year') | sort(attribute='grouper', reverse=True) %}
+            <span class="border border-dark rounded-1 px-1 small d-inline-flex gap-1">
+              <span class="text-muted">{{ grp.grouper }}</span>
+              {% for e in grp.list %}
+                <span class="{% if e.year == sel_year and e.student_type == sel_type %}text-primary fw-semibold{% else %}text-muted{% endif %}">{{ st_abbr.get(e.student_type, e.student_type) }}</span>
+              {% endfor %}
+            </span>
+          {% endfor %}
+        {% elif course.id in public_ids %}
+          <span class="border border-primary rounded-1 px-1 small text-primary fw-semibold">公共选修</span>
+        {% endif %}
+      </span>
+    </div>
+    {% if not greyed %}
+      {% set cmap = teacher_stats.get(course.id, {}) %}
+      {% for t in course.teachers %}
+        {% set s = cmap.get(t.id) %}
+        <div class="d-flex align-items-center border-top pt-1 mt-1 open-panel ps-3"
+             style="cursor:pointer" data-course="{{ course.id }}" data-teacher="{{ t.id }}">
+          <span class="small fw-semibold text-truncate" style="flex:0 0 7em">{{ t.name }}</span>
+          {% if s %}
+            {% set hue = ((s.all.avg - 1) / 4 * 120) | int %}
+            <span class="small fw-bold px-2 rounded-1 stat-badge" style="background:hsl({{ hue }},60%,82%)">
+              {{ s.all.avg }}<span style="font-size:.8em;font-weight:normal">分</span>
+              {{ s.all.cnt }}<span style="font-size:.7em;font-weight:normal">人评</span>
+            </span>
+          {% else %}
+            <span class="small text-muted stat-badge">暂无评价</span>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="text-muted small border-top pt-1 mt-1">暂无老师</div>
+      {% endfor %}
+    {% endif %}
+  </div>
+</div>
+{% endmacro %}

@@ -1,0 +1,148 @@
+{% extends 'base.html' %}
+{% block title %}{{ course.name }}{% endblock %}
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">课程列表</a></li>
+    <li class="breadcrumb-item active">{{ course.name }}</li>
+  </ol>
+</nav>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <p class="text-muted small mb-1">{{ course.code }} &nbsp;·&nbsp; {{ course.credits }} 学分</p>
+    <h5 class="card-title mb-3">{{ course.name }}</h5>
+    <div class="d-flex flex-wrap gap-2">
+      {% for t in course.teachers %}
+        <a class="btn {% if selected_teacher and selected_teacher.id == t.id %}btn-primary{% else %}btn-outline-primary{% endif %} btn-sm"
+           href="{{ url_for('main.course_detail', course_id=course.id, teacher_id=t.id) }}">
+          {{ t.name }}
+        </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{% if selected_teacher %}
+
+{# ---- 提交表单 ---- #}
+<div class="card shadow-sm mb-4">
+  <div class="card-header fw-semibold">为「{{ selected_teacher.name }}」提交评价</div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('main.submit') }}" id="evalForm">
+      <input type="hidden" name="course_id" value="{{ course.id }}">
+      <input type="hidden" name="teacher_id" value="{{ selected_teacher.id }}">
+
+      <div class="mb-3">
+        <label class="form-label">学年 <span class="text-danger">*</span></label>
+        <select class="form-select" name="year" required>
+          <option value="">请选择…</option>
+          {% for y in years %}
+            <option value="{{ y }}"
+              {% if y in year_submitted %}disabled{% endif %}>
+              {{ y }} 年
+              {% if y in year_submitted %}（已评价）{% endif %}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">综合评分 <span class="text-danger">*</span></label>
+        <div class="rating-stars" id="stars">
+          {% for i in range(1,6) %}
+            <span class="star" data-v="{{ i }}">★</span>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="rating" id="ratingInput" required>
+        <div class="form-text">1 = 很差，5 = 很好</div>
+      </div>
+
+      {% if tag_groups %}
+      <div class="mb-3">
+        <label class="form-label">快捷标签（可多选）</label>
+        {% for category, tags in tag_groups.items() %}
+          <div class="mb-2">
+            <small class="text-muted me-2">{{ category }}</small>
+            {% for tag in tags %}
+              <span class="badge bg-light text-dark border tag-btn me-1 mb-1"
+                    data-id="{{ tag.id }}">{{ tag.label }}</span>
+              <input type="checkbox" name="tags" value="{{ tag.id }}"
+                     id="tag{{ tag.id }}" class="d-none tag-chk">
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="mb-3">
+        <label class="form-label">评价内容（可选）</label>
+        <textarea class="form-control" name="comment" rows="3" maxlength="500"
+                  placeholder="可以描述上课风格、考核方式、注意事项等…"></textarea>
+      </div>
+
+      <button class="btn btn-primary" type="submit">提交评价</button>
+    </form>
+  </div>
+</div>
+
+{# ---- 历史评价 ---- #}
+<h6 class="mb-3">历史评价（{{ evaluations|length }} 条）</h6>
+{% if evaluations %}
+  {% set cur_year = namespace(v=0) %}
+  {% for ev in evaluations %}
+    {% if ev.year != cur_year.v %}
+      {% set cur_year.v = ev.year %}
+      <p class="fw-semibold text-secondary mt-3 mb-1">{{ ev.year }} 年</p>
+    {% endif %}
+    <div class="card card-body mb-2 py-2">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <span class="text-warning">{{ '★' * ev.rating }}{{ '☆' * (5 - ev.rating) }}</span>
+        <small class="text-muted">{{ ev.created_at.strftime('%Y-%m-%d') }}</small>
+      </div>
+      {% for tag in ev.tags %}
+        <span class="badge bg-secondary me-1">{{ tag.label }}</span>
+      {% endfor %}
+      {% if ev.comment %}<p class="mb-0 mt-1 small">{{ ev.comment }}</p>{% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <p class="text-muted">暂无评价，来做第一个吧！</p>
+{% endif %}
+
+{% else %}
+<div class="alert alert-info">请在上方选择一位老师，查看并提交评价。</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // 星级评分
+  const stars = document.querySelectorAll('.star');
+  const ratingInput = document.getElementById('ratingInput');
+  function setRating(v) {
+    ratingInput.value = v;
+    stars.forEach(s => s.classList.toggle('active', +s.dataset.v <= v));
+  }
+  stars.forEach(s => {
+    s.addEventListener('click', () => setRating(+s.dataset.v));
+    s.addEventListener('mouseenter', () =>
+      stars.forEach(x => x.classList.toggle('active', +x.dataset.v <= +s.dataset.v))
+    );
+  });
+  document.getElementById('stars')?.addEventListener('mouseleave', () => {
+    const v = +ratingInput.value;
+    stars.forEach(s => s.classList.toggle('active', +s.dataset.v <= v));
+  });
+
+  // 标签点选
+  document.querySelectorAll('.tag-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const chk = document.getElementById('tag' + btn.dataset.id);
+      chk.checked = !chk.checked;
+      btn.classList.toggle('selected', chk.checked);
+    });
+  });
+</script>
+{% endblock %}

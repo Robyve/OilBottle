@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block title %}管理后台{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h5 class="mb-0">管理后台</h5>
+  <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.logout') }}">退出登录</a>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="adminTabs">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-courses">课程</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-teachers">老师</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-tags">标签</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-evals">最近评价</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-curriculum">培养方案</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-announcement">公告</button></li>
+</ul>
+
+<div class="tab-content">
+
+  {# ===== 课程 ===== #}
+  <div class="tab-pane fade show active" id="tab-courses">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header fw-semibold">添加课程</div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.add_course') }}" class="row g-2">
+          <div class="col-sm-3"><input class="form-control" name="code" placeholder="课程编号" required></div>
+          <div class="col-sm-4"><input class="form-control" name="name" placeholder="课程名称" required></div>
+          <div class="col-sm-2"><input class="form-control" name="credits" type="number" step="0.5" min="0.5" placeholder="学分" required></div>
+          <div class="col-sm-2">
+            <select class="form-select" name="teacher_ids" multiple>
+              {% for t in teachers %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-1"><button class="btn btn-primary w-100" type="submit">添加</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover bg-white shadow-sm">
+        <thead class="table-light"><tr><th>编号</th><th>名称</th><th>学分</th><th>老师</th><th>公共选修</th><th></th></tr></thead>
+        <tbody>
+          {% for c in courses %}
+          <tr>
+            <td class="text-muted small">{{ c.code }}</td>
+            <td><a href="{{ url_for('main.course_detail', course_id=c.id) }}">{{ c.name }}</a></td>
+            <td>
+              <form method="post" action="{{ url_for('admin.edit_course', cid=c.id) }}" class="d-flex gap-1">
+                <input type="number" name="credits" value="{{ c.credits }}" step="0.5" min="0.5"
+                       class="form-control form-control-sm" style="width:70px">
+                <button class="btn btn-sm btn-outline-secondary" type="submit">✓</button>
+              </form>
+            </td>
+            <td>{% for t in c.teachers %}<span class="badge bg-secondary me-1">{{ t.name }}</span>{% endfor %}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin.toggle_public', cid=c.id) }}">
+                {% if c.exclude_from_public %}
+                  <button class="btn btn-sm btn-outline-secondary" title="已排除，点击恢复">排除</button>
+                {% elif c.id in public_ids %}
+                  <button class="btn btn-sm btn-success" title="当前列为公共选修，点击排除">公共</button>
+                {% else %}
+                  <span class="text-muted small">在方案中</span>
+                {% endif %}
+              </form>
+            </td>
+            <td>
+              <form method="post" action="{{ url_for('admin.delete_course', cid=c.id) }}"
+                    onsubmit="return confirm('确认删除课程「{{ c.name }}」及其所有评价？')">
+                <button class="btn btn-sm btn-outline-danger">删除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}<tr><td colspan="6" class="text-muted">暂无课程</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ===== 老师 ===== #}
+  <div class="tab-pane fade" id="tab-teachers">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.add_teacher') }}" class="d-flex gap-2">
+          <input class="form-control" name="name" placeholder="老师姓名" required>
+          <button class="btn btn-primary px-4" type="submit">添加</button>
+        </form>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover bg-white shadow-sm">
+        <thead class="table-light"><tr><th>姓名</th><th>关联课程</th><th></th></tr></thead>
+        <tbody>
+          {% for t in teachers %}
+          <tr>
+            <td>{{ t.name }}</td>
+            <td>{% for c in t.courses %}<span class="badge bg-light text-dark border me-1">{{ c.name }}</span>{% endfor %}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin.delete_teacher', tid=t.id) }}"
+                    onsubmit="return confirm('确认删除老师「{{ t.name }}」？')">
+                <button class="btn btn-sm btn-outline-danger">删除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}<tr><td colspan="3" class="text-muted">暂无老师</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ===== 标签 ===== #}
+  <div class="tab-pane fade" id="tab-tags">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.add_tag') }}" class="d-flex gap-2">
+          <input class="form-control" name="category" placeholder="分类（如：考勤）" required>
+          <input class="form-control" name="label" placeholder="标签文字（如：不点名）" required>
+          <button class="btn btn-primary px-4" type="submit">添加</button>
+        </form>
+      </div>
+    </div>
+    {% set ns = namespace(cur='') %}
+    {% for tag in tags %}
+      {% if tag.category != ns.cur %}
+        {% if not loop.first %}</div>{% endif %}
+        {% set ns.cur = tag.category %}
+        <p class="fw-semibold text-secondary mt-2 mb-1">{{ tag.category }}</p>
+        <div class="d-flex flex-wrap gap-2">
+      {% endif %}
+      <form method="post" action="{{ url_for('admin.delete_tag', tid=tag.id) }}"
+            class="d-inline" onsubmit="return confirm('删除标签「{{ tag.label }}」？')">
+        <button class="btn btn-sm btn-outline-secondary">
+          {{ tag.label }} <span class="text-danger ms-1">×</span>
+        </button>
+      </form>
+      {% if loop.last %}</div>{% endif %}
+    {% else %}<p class="text-muted">暂无标签</p>
+    {% endfor %}
+  </div>
+
+  {# ===== 最近评价 ===== #}
+  <div class="tab-pane fade" id="tab-evals">
+    <div class="table-responsive">
+      <table class="table table-sm table-hover bg-white shadow-sm">
+        <thead class="table-light">
+          <tr><th>时间</th><th>课程</th><th>老师</th><th>年份</th><th>评分</th><th>标签</th><th>内容</th><th>IP</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for ev in recent_evals %}
+          <tr>
+            <td class="text-muted small text-nowrap">{{ ev.created_at.strftime('%m-%d %H:%M') }}</td>
+            <td class="small">{{ ev.course.name }}</td>
+            <td class="small">{{ ev.teacher.name }}</td>
+            <td>{{ ev.year }}</td>
+            <td><span class="text-warning">{{ '★' * (ev.rating or 0) }}</span>{{ '' if ev.rating else '未评分' }}</td>
+            <td class="small">{% for t in ev.tags %}<span class="badge bg-secondary me-1">{{ t.label }}</span>{% endfor %}</td>
+            <td class="small text-truncate" style="max-width:150px">{{ ev.comment or '' }}</td>
+            <td class="text-muted small">{{ ev.submitter_ip }}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin.delete_eval', eid=ev.id) }}"
+                    onsubmit="return confirm('确认删除该评价？')">
+                <button class="btn btn-sm btn-outline-danger">删除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}<tr><td colspan="9" class="text-muted">暂无评价</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ===== 培养方案 ===== #}
+  <div class="tab-pane fade" id="tab-curriculum">
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('admin.add_curriculum') }}" class="row g-2">
+          <div class="col-sm-4">
+            <select class="form-select" name="course_id" required>
+              <option value="">选择课程…</option>
+              {% for c in courses %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-1">
+            <select class="form-select" name="year" required>
+              <option value="">年份</option>
+              {% for y in years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-1">
+            <select class="form-select" name="student_type" required>
+              <option value="">类型</option>
+              {% for t in student_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <input class="form-control" name="major_category" placeholder="课程大类" required>
+          </div>
+          <div class="col-sm-2">
+            <input class="form-control" name="sub_category" placeholder="课程类别" required>
+          </div>
+          <div class="col-sm-1"><button class="btn btn-primary w-100" type="submit">添加</button></div>
+        </form>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-sm table-hover bg-white shadow-sm">
+        <thead class="table-light"><tr><th>年份</th><th>类型</th><th>课程</th><th></th></tr></thead>
+        <tbody>
+          {% for e in curriculum %}
+          <tr>
+            <td>{{ e.year }}</td>
+            <td><span class="badge bg-primary-subtle text-primary border border-primary-subtle">{{ e.student_type }}</span></td>
+            <td>{{ e.course.name }}</td>
+            <td>
+              <form method="post" action="{{ url_for('admin.delete_curriculum', cid=e.id) }}"
+                    onsubmit="return confirm('确认删除？')">
+                <button class="btn btn-sm btn-outline-danger">删除</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}<tr><td colspan="4" class="text-muted">暂无培养方案数据</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ===== 公告 ===== #}
+  <div class="tab-pane fade" id="tab-announcement">
+    <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <div id="quill-editor" style="height:200px">{{ announcement_html|safe }}</div>
+        <form method="post" action="{{ url_for('admin.save_announcement') }}" class="mt-2" id="ann-form">
+          <input type="hidden" name="content" id="ann-content">
+          <button class="btn btn-danger" type="submit">保存公告</button>
+          <small class="text-muted ms-2">留空则不显示公告栏</small>
+        </form>
+      </div>
+    </div>
+    <script>
+      const quill = new Quill('#quill-editor', {
+        theme: 'snow',
+        modules: { toolbar: [['bold', 'italic'], [{ color: [] }], [{ align: [] }], ['link', 'image'], ['clean']] }
+      });
+      document.getElementById('ann-form').addEventListener('submit', () => {
+        document.getElementById('ann-content').value = quill.getSemanticHTML();
+      });
+    </script>
+  </div>
+
+</div>
+{% endblock %}

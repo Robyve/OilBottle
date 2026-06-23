@@ -1,0 +1,11 @@
+<p class="fw-semibold mb-3">{{ course.name }}</p>
+<form id="add-teacher-form">
+  <input type="hidden" name="course_id" value="{{ course.id }}">
+  <div class="mb-2">
+    <input class="form-control form-control-sm" name="name" placeholder="老师姓名" required autofocus>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <button class="btn btn-sm btn-primary" type="submit">添加</button>
+    <span class="small text-danger add-teacher-msg"></span>
+  </div>
+</form>
