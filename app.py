@@ -33,4 +33,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5001, exclude_patterns=['*/site-packages/*', '*/Lib/*'])
+    app.run(debug=True, host='0.0.0.0', port=5001, exclude_patterns=['*/site-packages/*', '*/Lib/*'])
