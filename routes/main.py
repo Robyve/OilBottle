@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, abort, jsonify
 from sqlalchemy import func
 from datetime import datetime, timedelta
-from models import db, Course, Teacher, Evaluation, Tag, CurriculumEntry
+from models import db, Course, Teacher, Evaluation, Tag, CurriculumEntry, PageView
 from config import Config
 
 bp = Blueprint('main', __name__)
@@ -12,10 +12,14 @@ _online = {}
 def _track_online():
     ip = get_client_ip()
     now = datetime.utcnow()
+    last = _online.get(ip)
     _online[ip] = now
     cutoff = now - timedelta(minutes=5)
     for k in [k for k, v in list(_online.items()) if v < cutoff]:
         del _online[k]
+    if last is None or (now - last) >= timedelta(minutes=5):
+        db.session.add(PageView(ip=ip, ts=now))
+        db.session.commit()
 
 
 def get_client_ip():

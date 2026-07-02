@@ -1,6 +1,8 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from flask_login import login_user, logout_user, login_required
-from models import db, Admin, Course, Teacher, Tag, Evaluation, CurriculumEntry, SiteConfig
+from sqlalchemy import func
+from datetime import datetime, timedelta
+from models import db, Admin, Course, Teacher, Tag, Evaluation, CurriculumEntry, SiteConfig, PageView
 from config import Config
 
 
@@ -208,6 +210,20 @@ def delete_curriculum(cid):
     db.session.commit()
     flash('已删除', 'success')
     return redirect(url_for('admin.dashboard'))
+
+
+# --- Visitor Stats ---
+
+@bp.route('/api/visitor_stats')
+@login_required
+def visitor_stats():
+    days = min(request.args.get('days', 1, type=int), 30)
+    since = datetime.utcnow() - timedelta(days=days)
+    rows = (db.session.query(
+        func.strftime('%Y-%m-%d %H:00', PageView.ts).label('hour'),
+        func.count(PageView.ip.distinct()).label('cnt')
+    ).filter(PageView.ts >= since).group_by('hour').order_by('hour').all())
+    return jsonify([{'t': r.hour, 'n': r.cnt} for r in rows])
 
 
 # --- Evaluation ---

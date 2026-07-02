@@ -13,6 +13,7 @@
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-evals">最近评价</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-curriculum">培养方案</button></li>
   <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-announcement">公告</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-visitors">访客统计</button></li>
 </ul>
 
 <div class="tab-content">
@@ -224,6 +225,35 @@
         </tbody>
       </table>
     </div>
+  </div>
+
+  {# ===== 访客统计 ===== #}
+  <div class="tab-pane fade" id="tab-visitors">
+    <div class="card shadow-sm">
+      <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+        访客趋势（每小时独立IP）
+        <div class="btn-group btn-group-sm">
+          <button class="btn btn-outline-secondary active" id="vbtn-1" onclick="loadVisitor(1)">24小时</button>
+          <button class="btn btn-outline-secondary" id="vbtn-7" onclick="loadVisitor(7)">7天</button>
+        </div>
+      </div>
+      <div class="card-body"><canvas id="visitor-chart" height="80"></canvas></div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script>
+    let _vc;
+    async function loadVisitor(days) {
+      [1,7].forEach(d => document.getElementById('vbtn-'+d).classList.toggle('active', d===days));
+      const data = await fetch('/admin/api/visitor_stats?days='+days).then(r=>r.json());
+      if (_vc) _vc.destroy();
+      _vc = new Chart(document.getElementById('visitor-chart'), {
+        type: 'line',
+        data: { labels: data.map(d=>d.t), datasets:[{ label:'独立访客', data: data.map(d=>d.n), tension:0.3, fill:true }] },
+        options: { scales: { x: { ticks: { maxRotation: 45, maxTicksLimit: 24 } } } }
+      });
+    }
+    document.querySelector('[data-bs-target="#tab-visitors"]').addEventListener('shown.bs.tab', ()=>loadVisitor(1));
+    </script>
   </div>
 
   {# ===== 公告 ===== #}

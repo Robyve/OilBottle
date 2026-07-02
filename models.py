@@ -80,6 +80,12 @@ class SiteConfig(db.Model):
     value = db.Column(db.Text, default='')
 
 
+class PageView(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ip = db.Column(db.String(45), nullable=False)
+    ts = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+
+
 class Admin(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(50), unique=True, nullable=False)
